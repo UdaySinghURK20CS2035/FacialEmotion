@@ -5,7 +5,7 @@ from tensorflow.keras.preprocessing.image import img_to_array
 from tensorflow.keras.applications.efficientnet_v2 import preprocess_input
 from PIL import Image
 import cv2
-
+import json
 
 # Load your emotion classification model
 def load_model(model_path, weights_path):
@@ -15,20 +15,15 @@ def load_model(model_path, weights_path):
     loaded_model.load_weights(weights_path)
     return loaded_model
 
-
-# Function to preprocess image for prediction
 # Function to preprocess image for prediction
 def preprocess_image(img, target_size=(224, 224)):
-    # Convert image to RGB if it has an alpha channel
     if img.mode != 'RGB':
         img = img.convert('RGB')
-
     img = img.resize(target_size)
     img_array = img_to_array(img)
     img_array = np.expand_dims(img_array, axis=0)
     img_array = preprocess_input(img_array)
     return img_array
-
 
 # Function to predict emotion of the image
 def predict_emotion_single_image(img, model):
@@ -37,49 +32,33 @@ def predict_emotion_single_image(img, model):
     predicted_class = np.argmax(predictions, axis=1)[0]
     return predicted_class
 
-
 # Function for real-time emotion detection using webcam
 def real_time_emotion_detection(model, face_cascade):
     st.write("Real-time Facial Emotion Detection")
-
-    # Open a connection to the webcam (0 represents the default webcam)
     cap = cv2.VideoCapture(0)
     stframe = st.image([])
 
     while True:
-        # Capture frame-by-frame
         ret, frame = cap.read()
-
         if not ret:
             st.write("Error: Failed to capture image")
             break
 
-        # Convert the frame to grayscale
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-
-        # Detect faces in the grayscale frame
         faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
 
-        # Draw rectangles around the faces and predict emotions
         for (x, y, w, h) in faces:
             face_img = frame[y:y + h, x:x + w]
-            predicted_class = predict_emotion_single_image(Image.fromarray(cv2.cvtColor(face_img, cv2.COLOR_BGR2RGB)),
-                                                           model)
+            predicted_class = predict_emotion_single_image(Image.fromarray(cv2.cvtColor(face_img, cv2.COLOR_BGR2RGB)), model)
             cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 0, 0), 2)
-            cv2.putText(frame, class_names[predicted_class], (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (36, 255, 12),
-                        2)
+            cv2.putText(frame, class_names[predicted_class], (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (36, 255, 12), 2)
 
-        # Display the resulting frame
         stframe.image(frame, channels="BGR")
-
-        # Exit loop if 'q' is pressed
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
 
-    # Release the capture
     cap.release()
     cv2.destroyAllWindows()
-
 
 # Load your emotion classification model
 model = load_model('model.json', 'model_weights.h5')
@@ -88,7 +67,6 @@ model = load_model('model.json', 'model_weights.h5')
 face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
 
 class_names = ['Ahegao', 'Angry', 'Happy', 'Neutral', 'Sad', 'Surprise']
-
 
 # Main Streamlit function
 def main():
