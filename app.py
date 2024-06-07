@@ -62,7 +62,6 @@ def real_time_emotion_detection(model, face_cascade):
             break
 
     cap.release()
-    cv2.destroyAllWindows()
 
 # Load your emotion classification model
 model = load_model('model.json', 'model_weights.h5')
