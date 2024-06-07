@@ -36,7 +36,6 @@ def predict_emotion_single_image(img, model):
 def real_time_emotion_detection(model, face_cascade):
     st.write("Real-time Facial Emotion Detection")
     cap = cv2.VideoCapture(0)
-    stframe = st.image([])
 
     while True:
         ret, frame = cap.read()
@@ -53,7 +52,12 @@ def real_time_emotion_detection(model, face_cascade):
             cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 0, 0), 2)
             cv2.putText(frame, class_names[predicted_class], (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (36, 255, 12), 2)
 
-        stframe.image(frame, channels="BGR")
+        # Convert the frame from OpenCV BGR format to RGB format
+        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+        # Display the frame using Streamlit
+        st.image(rgb_frame, channels="RGB")
+
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
 
