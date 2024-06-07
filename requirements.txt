@@ -3,4 +3,4 @@ numpy
 tensorflow==2.13.0
 keras
 pillow
-opencv-python-headless
+opencv-python
