@@ -4,3 +4,4 @@ tensorflow==2.13.0
 keras
 pillow
 opencv-python-headless
+streamlit-webrtc
