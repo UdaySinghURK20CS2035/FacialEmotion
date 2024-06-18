@@ -1,11 +1,11 @@
-import cv2
 import streamlit as st
-from streamlit_webrtc import VideoTransformerBase, webrtc_streamer
+import numpy as np
+import tensorflow as tf
 from tensorflow.keras.preprocessing.image import img_to_array
 from tensorflow.keras.applications.efficientnet_v2 import preprocess_input
 from PIL import Image
-import numpy as np
-import tensorflow as tf
+import cv2
+
 
 # Load your emotion classification model
 def load_model(model_path, weights_path):
@@ -15,51 +15,85 @@ def load_model(model_path, weights_path):
     loaded_model.load_weights(weights_path)
     return loaded_model
 
-# Preprocessing function for the image
+
+# Function to preprocess image for prediction
+# Function to preprocess image for prediction
 def preprocess_image(img, target_size=(224, 224)):
+    # Convert image to RGB if it has an alpha channel
     if img.mode != 'RGB':
         img = img.convert('RGB')
+
     img = img.resize(target_size)
     img_array = img_to_array(img)
     img_array = np.expand_dims(img_array, axis=0)
     img_array = preprocess_input(img_array)
     return img_array
 
-# Load the model
+
+# Function to predict emotion of the image
+def predict_emotion_single_image(img, model):
+    preprocessed_img = preprocess_image(img)
+    predictions = model.predict(preprocessed_img)
+    predicted_class = np.argmax(predictions, axis=1)[0]
+    return predicted_class
+
+
+# Function for real-time emotion detection using webcam
+def real_time_emotion_detection(model, face_cascade):
+    st.write("Real-time Facial Emotion Detection")
+
+    # Open a connection to the webcam (0 represents the default webcam)
+    cap = cv2.VideoCapture(0)
+    stframe = st.image([])
+
+    while True:
+        # Capture frame-by-frame
+        ret, frame = cap.read()
+
+        if not ret:
+            st.write("Error: Failed to capture image")
+            break
+
+        # Convert the frame to grayscale
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+        # Detect faces in the grayscale frame
+        faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
+
+        # Draw rectangles around the faces and predict emotions
+        for (x, y, w, h) in faces:
+            face_img = frame[y:y + h, x:x + w]
+            predicted_class = predict_emotion_single_image(Image.fromarray(cv2.cvtColor(face_img, cv2.COLOR_BGR2RGB)),
+                                                           model)
+            cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 0, 0), 2)
+            cv2.putText(frame, class_names[predicted_class], (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (36, 255, 12),
+                        2)
+
+        # Display the resulting frame
+        stframe.image(frame, channels="BGR")
+
+        # Exit loop if 'q' is pressed
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
+    # Release the capture
+    cap.release()
+    cv2.destroyAllWindows()
+
+
+# Load your emotion classification model
 model = load_model('model.json', 'model_weights.h5')
 
 # Load the pre-trained face detection model
-faceCascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
 
 class_names = ['Ahegao', 'Angry', 'Happy', 'Neutral', 'Sad', 'Surprise']
 
-class VideoTransformer(VideoTransformerBase):
-    def __init__(self):
-        self.i = 0
 
-    def transform(self, frame):
-        img = frame.to_ndarray(format="bgr24")
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        faces = faceCascade.detectMultiScale(gray, 1.3, 5)
-        i = self.i + 1
-
-        for (x, y, w, h) in faces:
-            face_img = img[y:y + h, x:x + w]
-            face_img = cv2.cvtColor(face_img, cv2.COLOR_BGR2RGB)
-            pil_img = Image.fromarray(face_img)
-            preprocessed_img = preprocess_image(pil_img)
-            predictions = model.predict(preprocessed_img)
-            predicted_class = np.argmax(predictions, axis=1)[0]
-
-            cv2.rectangle(img, (x, y), (x + w, y + h), (95, 207, 30), 3)
-            cv2.rectangle(img, (x, y - 40), (x + w, y), (95, 207, 30), -1)
-            cv2.putText(img, class_names[predicted_class], (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 0), 2)
-
-        return img
-
+# Main Streamlit function
 def main():
     st.title("Facial Emotion Detection")
-    st.sidebar.title("Dashboard")
+    st.sidebar.title("Options")
     st.sidebar.markdown(
         """ Developed by Uday Singh    
             Model: EfficientnetV2  
@@ -86,17 +120,15 @@ def main():
                  """)
 
     elif option == "Real-time Facial Emotion Analysis":
-        webrtc_streamer(key="example", video_transformer_factory=VideoTransformer)
+        real_time_emotion_detection(model, face_cascade)
 
     elif option == "Emotion Analysis for Local Images":
         st.write("Emotion Analysis for a Single Image")
         single_image = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"])
         if single_image is not None:
             img = Image.open(single_image)
-            preprocessed_img = preprocess_image(img)
-            predictions = model.predict(preprocessed_img)
-            predicted_class = np.argmax(predictions, axis=1)[0]
-            st.write("Predicted Emotion for Uploaded Image:", class_names[predicted_class])
+            predicted_emotion = predict_emotion_single_image(img, model)
+            st.write("Predicted Emotion for Uploaded Image:", class_names[predicted_emotion])
 
     elif option == "About":
         st.subheader("About this app")
